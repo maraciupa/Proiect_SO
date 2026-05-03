@@ -843,6 +843,48 @@ void verify_existing_symlinks(char *link)
 	
 }
 
+//Phase 2//
+
+void remove_district(char *district_id)
+{
+	char d[500]; //for the district
+	char s[500]; //for the symlink
+
+	strcpy(d, "./");
+	strcat(d, district_id);
+
+	strcpy(s, "active-reports-");
+	strcat(s, district_id);
+
+	pid_t pid;
+	if((pid=fork())<0)
+	{
+		perror("Error! fork() didn't work!");
+		exit(-1);
+	}
+	if(pid==0)
+	{
+		// child process:
+		execlp("rm", "rm", "-rf", d, NULL);
+		perror("Error! couldn't execute rm!");
+		exit(-1);
+	}
+	//parent process:
+	else
+	{
+		wait(NULL); //waiting for the child process to be finished
+		if(unlink(s)==0)
+		{
+			printf("The district & symlink were both removed!");
+		}
+		else
+		{
+			printf("The symlink couldn't be removed - just the district!");
+		}
+	}
+
+}
+
 int main(int argc, char **argv)
 {
      	if(argc<5)
@@ -950,6 +992,16 @@ int main(int argc, char **argv)
 			verify_all_reports(argv[4], argc, argv, 5);
 			logging_actions(district, role, user, "FILTER");
 		} 
+		else if(strcmp(argv[3], "--remove_district")==0)
+		{
+			if(strcmp(role, "manager")!=0)
+			{
+				perror("Error! remove_district needed the 'manager' role!");
+				exit(-1);
+			}
+			remove_district(argv[4]);
+			logging_actions(argv[4], role, user, "REMOVE_DISTRICT");
+		}
 	}
 
 	else if(strcmp(argv[3], "--user")==0)
@@ -1032,6 +1084,16 @@ int main(int argc, char **argv)
 				verify_all_reports(argv[6], argc, argv, 7);
 				logging_actions(district, role, user, "FILTER");
 			} 
+			else if(strcmp(argv[5], "--remove_district")==0)
+			{
+				if(strcmp(role, "manager")!=0)
+				{
+					perror("Error! remove_district needed the 'manager' role!");
+					exit(-1);
+				}
+				remove_district(argv[6]);
+				logging_actions(argv[6], role, user, "REMOVE_DISTRICT");
+			}
 		}
 		else
 		{
