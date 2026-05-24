@@ -5,6 +5,7 @@
 #include<fcntl.h>
 #include<signal.h>
 
+
 void start_monitor()
 {
 	int pfd[2]; //2 file descriptors
@@ -51,11 +52,13 @@ void start_monitor()
 		if(strncmp(message_read, "ERROR:", 6)==0)
 		{
 			printf("ERROR from monitor: %s\n", message_read+6);
+			printf("hub_mon: monitor ended!\n");
 			break;
 		}
 		else if(strncmp(message_read, "STOP:", 5)==0)
 		{
 			printf("STOP from monitor: %s\n", message_read+5);
+			printf("hub_mon: monitor ended!\n");
 			break;
 		}
 		else if(strncmp(message_read, "SIGUSR1:", 8)==0)
@@ -69,6 +72,56 @@ void start_monitor()
 		}
 	}
 	close(pfd[0]);	
+	
+} 
+
+
+//PHASE 3 EX 2//
+
+void calculate_scores(char *districts)
+{
+	//we need to separate the districts with STRTOK:
+	char *p=strtok(districts, " ");
+	while(p)
+	{
+		int pfd[2]; //we'll create a pipe that will be reused at every district name
+		if(pipe(pfd)<0)
+		{
+			perror("Error! Couldn't create pipe for calculate_scores()! ");
+			exit(-1);
+		}
+		int pid=fork();	
+		if(pid<0)
+		{
+			perror("Error! fork couldn't work for calculate_scores()! ");
+			exit(-1);
+		}
+		if(pid==0) //the child process
+		{
+			close(pfd[0]); //closing the reading end of the pipe
+			dup2(pfd[1], 1);
+			close(pfd[1]);
+
+			execl("./scorer", "scorer", p, NULL);
+			perror("Error! execl() didn't work!");
+			exit(-1);
+		}	
+		//the parent process:
+		close(pfd[1]); //closing the writing end of the pipe
+		
+		char s[500]; //works as a buffer for reading
+		int s_read;
+		while((s_read=read(pfd[0], s, sizeof(s)-1))>0)
+		{
+			s[s_read]='\0';
+			printf("%s", s);
+		}
+		close(pfd[0]); //closing the reading end of the pipe to prepare for the next district
+		wait(NULL);
+		p=strtok(NULL, " ");
+	}
+	printf("\n");
+	
 }
 
 int main()
@@ -92,9 +145,27 @@ int main()
 			printf("you chose the exit command!\n");
 			exit(0);
 		}
+		//for the 2nd exercise from phase 3:
+		else if(strncmp(command, "calculate_scores", strlen("calculate_scores"))==0)
+		{
+			char *district_argument=command+strlen("calculate_scores");
+			while(*district_argument==' ')
+			{
+				district_argument++;
+			}
+			if(strlen(district_argument)==0)
+			{
+				printf("Error! not enough district arguments for calculate_scores()! ");
+				//exit(-1);
+			}
+			else
+			{
+				calculate_scores(district_argument);
+			}
+		}
 		else
 		{
-			printf("Error! invalid command!");
+			printf("Error! invalid command!\n");
 			
 		}
 	}
